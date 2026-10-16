@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  RESTRICTED
+}
+
+enum BookCondition {
+  MINT
+  GOOD
+  FAIR
+  WORN
+}
+
+enum CopyStatus {
+  AVAILABLE
+  LOANED_INTERNAL
+  LOANED_EXTERNAL
+  UNAVAILABLE
+}
+
+enum LoanState {
+  REQUESTED
+  APPROVED
+  ACTIVE
+  RETURNED
+  OVERDUE
+  CANCELLED
+}
+
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  /// Public handle, shown as @username. The only identity other users ever see.
+  username            String     @unique
+  // --- Private KYC identity: stored for accountability, NEVER returned to other users. ---
+  firstName           String?    @map("first_name")
+  lastName            String?    @map("last_name")
+  nationalId          String?    @unique @map("national_id")
+  phoneNumber         String?    @unique @map("phone_number")
+  /// Jalali date, YYYY/MM/DD.
+  birthDate           String?    @map("birth_date")
+  /// HMAC of the normalized phone/email. Raw contact details are never stored.
+  contactHash         String     @unique @map("contact_hash")
+  avatarId            Int        @map("avatar_id")
+  /// Spendable balance. A token locked by an approved/active loan is already deducted.
+  karmaTokens         Int        @default(1) @map("karma_tokens")
+  trustScore          Int        @default(100) @map("trust_score")
+  status              UserStatus @default(ACTIVE)
+  /// One-time +1 token for listing 2+ available books.
+  listingBonusGranted Boolean    @default(false) @map("listing_bonus_granted")
+  createdAt           DateTime   @default(now()) @map("created_at")
+
+  circles        UserCircle[]
+  copies         BookCopy[]
+  loansLent      Loan[]                @relation("LenderLoans")
+  loansBorrowed  Loan[]                @relation("BorrowerLoans")
+  passportEntries BookPassportEntry[]
+  wishlist       WishlistItem[]
+
+  @@map("users")
+}
+
+model Circle {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  slug       String   @unique
+  city       String
+  /// Neighborhood-level geohash (max 5 chars). Never an exact location.
+  geohash    String?
+  isPublic   Boolean  @default(false) @map("is_public")
+  inviteCode String   @unique @map("invite_code")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  members UserCircle[]
+
+  @@map("circles")
+}
+
+model UserCircle {
+  userId   String   @map("user_id") @db.Uuid
+  circleId String   @map("circle_id") @db.Uuid
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, circleId])
+  @@index([circleId])
+  @@map("user_circles")
+}
+
+model BookEdition {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// Normalized ISBN-10/13. Null for manually entered books without one.
+  isbn        String?  @unique
+  title       String
+  authors     String[]
+  publisher   String?
+  genres      String[]
+  coverUrl    String?  @map("cover_url")
+  /// Normalized title + authors + publisher + isbn. Target of trigram and FTS indexes.
+  searchText  String   @default("") @map("search_text")
+  /// Generated column (see migration); read-only from Prisma.
+  searchVector Unsupported("tsvector")? @map("search_vector")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  copies BookCopy[]
+  wishlistedBy WishlistItem[]
+
+  @@map("book_editions")
+}
+
+model BookCopy {
+  id         String        @id @default(uuid()) @db.Uuid
+  ownerId    String        @map("owner_id") @db.Uuid
+  editionId  String        @map("edition_id") @db.Uuid
+  condition  BookCondition @default(GOOD)
+  status     CopyStatus    @default(AVAILABLE)
+  ownerNotes String?       @map("owner_notes")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  owner   User                 @relation(fields: [ownerId], references: [id])
+  edition BookEdition          @relation(fields: [editionId], references: [id])
+  loans   Loan[]
+  passport BookPassportEntry[]
+
+  @@index([ownerId])
+  @@index([editionId])
+  @@index([status])
+  @@map("book_copies")
+}
+
+model Loan {
+  id                    String         @id @default(uuid()) @db.Uuid
+  copyId                String         @map("copy_id") @db.Uuid
+  lenderId              String         @map("lender_id") @db.Uuid
+  /// Null for external loans (book lent to someone outside Varaq).
+  borrowerId            String?        @map("borrower_id") @db.Uuid
+  externalBorrowerName  String?        @map("external_borrower_name")
+  state                 LoanState      @default(REQUESTED)
+  /// Shown to the lender; the borrower enters it to confirm they received the book.
+  handoverPin           String?        @map("handover_pin")
+  /// Shown to the borrower; the lender enters it to confirm the book came back.
+  returnPin             String?        @map("return_pin")
+  pinAttempts           Int            @default(0) @map("pin_attempts")
+  /// True while one of the borrower's tokens is held by this loan.
+  tokenLocked           Boolean        @default(false) @map("token_locked")
+  dueDate               DateTime?      @map("due_date")
+  handoverCondition     BookCondition? @map("handover_condition")
+  returnCondition       BookCondition? @map("return_condition")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  handoverAt            DateTime?      @map("handover_at")
+  returnedAt            DateTime?      @map("returned_at")
+
+  copy     BookCopy           @relation(fields: [copyId], references: [id])
+  lender   User               @relation("LenderLoans", fields: [lenderId], references: [id])
+  borrower User?              @relation("BorrowerLoans", fields: [borrowerId], references: [id])
+  passportEntry BookPassportEntry?
+
+  @@index([copyId])
+  @@index([lenderId])
+  @@index([borrowerId])
+  @@index([state, dueDate])
+  @@map("loans")
+}
+
+model BookPassportEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  copyId        String   @map("copy_id") @db.Uuid
+  loanId        String   @unique @map("loan_id") @db.Uuid
+  readerId      String   @map("reader_id") @db.Uuid
+  note          String
+  cityOrCircle  String?  @map("city_or_circle")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  copy   BookCopy @relation(fields: [copyId], references: [id])
+  loan   Loan     @relation(fields: [loanId], references: [id])
+  reader User     @relation(fields: [readerId], references: [id])
+
+  @@index([copyId, createdAt])
+  @@map("book_passport_entries")
+}
+
+model WishlistItem {
+  userId    String   @map("user_id") @db.Uuid
+  editionId String   @map("edition_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, editionId])
+  @@index([editionId])
+  @@map("wishlist_items")
+}

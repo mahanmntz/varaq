@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paper & ink: warm off-white paper, deep ink-blue primary, terracotta accent. */
+:root {
+  --background: 160 30% 97%;
+  --foreground: 200 32% 10%;
+  --card: 0 0% 100%;
+  --muted: 160 22% 93%;
+  --muted-foreground: 200 14% 36%;
+  --border: 160 18% 86%;
+  --primary: 175 77% 26%; /* deep emerald #0F766E */
+  --primary-foreground: 0 0% 100%;
+  --accent: 38 92% 50%; /* amber / gold #F59E0B */
+  --accent-foreground: 30 70% 10%;
+  --accent-ink: 30 90% 32%; /* amber readable as text on light */
+  --violet: 262 62% 52%; /* Book Passport */
+  --danger: 0 66% 46%;
+  --success: 160 84% 30%;
+}
+.dark {
+  --background: 200 28% 6%;
+  --foreground: 160 18% 93%;
+  --card: 200 24% 10%;
+  --muted: 200 18% 15%;
+  --muted-foreground: 190 12% 66%;
+  --border: 200 16% 20%;
+  --primary: 160 72% 46%; /* emerald #10B981-ish */
+  --primary-foreground: 200 40% 6%;
+  --accent: 38 92% 56%;
+  --accent-foreground: 30 70% 8%;
+  --accent-ink: 40 95% 66%;
+  --violet: 262 90% 76%;
+  --danger: 0 72% 66%;
+  --success: 160 70% 56%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image:
+      radial-gradient(60rem 28rem at 88% -8%, hsl(var(--primary) / 0.16), transparent 70%),
+      radial-gradient(44rem 26rem at 0% 6%, hsl(var(--accent) / 0.12), transparent 70%),
+      radial-gradient(40rem 30rem at 50% 110%, hsl(var(--violet) / 0.1), transparent 70%);
+    background-attachment: fixed;
+  }
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-sheet-in {
+  animation: sheet-in 0.25s ease-out;
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.glass {
+  @apply border border-border/60 bg-card/70 backdrop-blur-xl;
+}
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* toasts render in a portal: keep the app font (Vazirmatn) */
+[data-sonner-toaster] {
+  font-family: inherit !important;
+}
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

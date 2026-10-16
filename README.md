@@ -1,172 +1,206 @@
-<div align="center">
+# Varaq
 
-# Varaq · ورق
+Peer-to-peer lending of physical books for friends, campuses and local communities, plus a personal bookshelf tracker. Free and open source.
 
-**Free, open-source, peer-to-peer lending for physical books — for friends, campuses and local communities.**
+The product UI is entirely in **Persian (RTL, Vazirmatn)**. Code, comments, docs, commits and API text are in **English**.
 
-[English](#english) · [فارسی](#فارسی)
+## What it does
 
-</div>
+- **Global discovery** – every available book is visible and borrowable. Circles (campus, café, friend group) are only an optional filter.
+- **Personal library** – add books by scanning the ISBN barcode, typing the ISBN, or entering details by hand.
+- **External loans** – log a book lent to someone who is not on Varaq (name + due date) and get a WhatsApp reminder link.
+- **Loan flow with a 4-digit PIN handshake** – request → approve → hand over → return, with the physical condition logged at both ends.
+- **Karma tokens** – lending earns a token, borrowing locks one until the book is back.
+- **Book Passport** – every physical copy has a timeline; each borrower can leave a one-sentence memory after returning it.
+- **Wishlist** – heart a book to save its edition.
+- **Identity verification** – national code + birth date are required before adding books or borrowing. Browsing is open.
 
----
+## Quick start
 
-## English
-
-Varaq is a personal bookshelf tracker and a lending network in one. Catalogue your books in seconds, lend them to friends (inside or outside the app), and follow the journey of every physical copy.
-
-### Features
-
-- **Personal library** – scan the ISBN barcode with your camera (auto-metadata from Open Library / Google Books) or add a book by hand.
-- **External loan tracker** – lent a book to someone who isn't on Varaq? Log their name and due date; Varaq reminds you and builds a WhatsApp reminder link.
-- **Karma tokens** – 1 loan = 1 token. Listing 2+ available books gives a one-time bonus token; lending earns +1; borrowing locks 1 until the book is back.
-- **Global discovery** – every available book is visible and borrowable right away, no circle required. Circles / hubs (campus, café, friend group) are an *optional filter* (`نزدیک من`, per-circle pills) next to genre and condition filters. Locations are never exact: only a city and an optional geohash truncated to ~5 km.
-- **Discover home** – hero with live platform stats, activity ticker, «تازه‌های ورق» carousel, popular & high-trust lenders, a *Surprise me* shuffle, and a wishlist (heart) toggle.
-- **2-step PIN handshake** – the receiver of the book types a 4-digit PIN shown on the other person's phone and logs the physical condition (`MINT`, `GOOD`, `FAIR`, `WORN`) at hand-over and at return.
-- **Book Passport** – each physical copy keeps a timeline; every borrower can leave a one-sentence memory after returning it.
-- **Bias-free public profiles, accountable private identity** – onboarding collects first/last name and a phone; the Iranian national code (checksum-validated) and Jalali birth date are required later, before the first borrow. Last name, national code, phone and birth date are stored privately and returned **only to the owner**; everyone else sees just the **first name** (plus `@username`), one of 16 built-in SVG avatars, trust score and karma tokens. No photo uploads. Login is by phone OTP (the phone is also kept as an HMAC for lookup).
-- **Typo-tolerant Persian search** – PostgreSQL `pg_trgm` + full-text search over normalized text (Arabic/Persian ye & kaf, digits, ZWNJ).
-- **Persian-first PWA** – RTL, Vazirmatn font, light/dark paper-and-ink theme, installable, mobile bottom navigation.
-
-### Quick start
-
-```bash
-cp .env.example .env   # optional: docker compose works without it
-docker compose up --build
-```
-
-| Service | URL |
-| --- | --- |
-| Web app | http://localhost:3000 |
-| API | http://localhost:4000 |
-| Swagger / OpenAPI | http://localhost:4000/docs |
-
-Migrations and seed data (20 Persian / translated books, 3 circles, 5 users with KYC fields) are applied automatically. In development the OTP is fixed: **`123456`**.
-
-Demo logins (enter the phone, then `123456`):
-
-| User | Phone |
-| --- | --- |
-| @sara_reads | `09121110001` |
-| @amir_hosseini | `09121110002` |
-| @negar_n | `09121110003` |
-| @reza_b | `09121110004` |
-| @mina_m | `09121110005` |
-
-Demo circle invite codes: `UTEHRAN1`, `METROCAFE`, `FRIENDS24`.
-
-> Port already in use? Set `POSTGRES_PORT`, `REDIS_PORT`, `API_HOST_PORT` or `WEB_HOST_PORT` in `.env`.
-> The seed ISBNs are synthetic (valid checksum, not the real ISBNs of those books).
-
-### Local development (without Docker for the apps)
-
-Requires Node 20+ and pnpm.
+Requirements: Node 20+, pnpm, Docker.
 
 ```bash
 cp .env.example .env
 pnpm install
-pnpm db:deploy && pnpm db:seed     # migrations + seed (needs postgres up)
-pnpm dev                            # starts postgres+redis in Docker, then API :4000 and web :3000 with hot reload
-pnpm test                           # unit tests
-pnpm typecheck
+pnpm infra          # Postgres + Redis in Docker
+pnpm db:deploy      # apply migrations
+pnpm db:seed        # demo data (idempotent)
+pnpm dev            # API :4000 + web :3000, both with hot reload
 ```
 
-### Architecture
+| What    | URL                        |
+| ------- | -------------------------- |
+| Web app | http://localhost:3000      |
+| API     | http://localhost:4000      |
+| Swagger | http://localhost:4000/docs |
 
-A pnpm monorepo containing a **modular monolith** API and a Next.js PWA.
+**Demo login:** phone `09121110001` … `09121110005`, code `123456` (fixed OTP in development, see `DEV_FIXED_OTP`).
+Those users are already identity-verified. Any other phone number starts the sign-up flow.
+Demo circle invite codes: `UTEHRAN1`, `METROCAFE`, `FRIENDS24`.
+
+### Everything in Docker
+
+```bash
+docker compose up --build   # web, api, postgres, redis; migrates and seeds automatically
+```
+
+Use this to test the full stack, not for day-to-day work (it rebuilds images). If a host port is taken, set `POSTGRES_PORT`, `REDIS_PORT`, `API_HOST_PORT` or `WEB_HOST_PORT` in `.env`. If Docker Hub is unreachable, set `NODE_IMAGE` to a mirror of `node:22-slim`.
+
+## Commands
+
+| Command                             | What it does                                                       |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `pnpm dev`                          | Starts Postgres/Redis, then API (`tsx watch`) and web (`next dev`) |
+| `pnpm infra`                        | Starts only Postgres and Redis                                     |
+| `pnpm db:deploy`                    | Applies existing migrations                                        |
+| `pnpm db:migrate`                   | Creates a new migration from `schema.prisma` (dev)                 |
+| `pnpm db:seed`                      | Loads demo data                                                    |
+| `pnpm db:generate`                  | Regenerates the Prisma client                                      |
+| `pnpm test` / `pnpm typecheck`      | Unit tests / TypeScript checks for every package                   |
+| `pnpm format` / `pnpm format:check` | Prettier write / check                                             |
+
+## Repository layout
 
 ```
-apps/api            Fastify + Prisma + PostgreSQL + Redis
-  src/modules/
-    auth            OTP login, JWT
-    users           profile, avatar, karma tokens, trust score
-    catalog         BookEdition (ISBN metadata) + BookCopy inventory, search, feed
-    circulation     loan state machine, PIN handshake, external loans
-    passport        Book Passport timeline
-    circles         hubs and fuzzy-location filtering
-apps/web            Next.js App Router, Tailwind, Radix, PWA
-packages/shared     Zod schemas, constants, Persian normalization
+apps/
+  api/                       Fastify + Prisma + PostgreSQL + Redis
+    prisma/
+      schema.prisma          Data model
+      migrations/            SQL migrations (some are hand-edited, see below)
+      seed.ts                Demo data
+    src/
+      app.ts                 Composition root: wires modules together
+      discover.routes.ts     Read-only "platform pulse" for the home page
+      config.ts              Env parsing (zod)
+      lib/                   db, redis, errors, hashing helpers
+      plugins/auth.ts        JWT + `authenticate` hook
+      modules/
+        auth/                Phone OTP login and registration
+        users/               Profile, avatar, karma, trust, identity
+        catalog/             Editions, copies, search, feed, wishlist
+        circulation/         Loans, state machine, PIN handshake, external loans
+        passport/            Book Passport timeline
+        circles/             Circles and optional filtering
+  web/                       Next.js (App Router), Tailwind, Radix, framer-motion
+    app/
+      login/                 Phone → OTP → sign-up
+      (app)/                 Authenticated area (shell + pages)
+        page.tsx             Discover (home)
+        library/ loans/ circles/ profile/ wishlist/ verify/ books/[id]/
+      manifest.ts, pwa-icon/ PWA manifest and generated icons
+    components/              UI building blocks (see below)
+    lib/                     api client, auth, wishlist, labels (Persian copy), format
+packages/
+  shared/                    Zod schemas, constants, validators (national code, phone, ISBN, Jalali date)
 ```
 
-Each module has `repository` (data access) → `service` (rules, the module's *public interface*) → `routes` (HTTP + Zod/OpenAPI). Modules talk to each other only through service interfaces; `src/app.ts` is the composition root. A module takes other modules' services as dependencies, so dependencies always flow one way: `users, circles → catalog → circulation → passport`.
+## Where do I change…?
 
-**Loan state machine** (`circulation/loan-state-machine.ts`, pure and unit-tested):
+| I want to change…                    | Look at                                                                           |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| A Persian label or error message     | `apps/web/lib/labels.ts` (error codes → Persian), or the page/component itself    |
+| What the API accepts (validation)    | `packages/shared/src/schemas.ts` (used by API **and** web)                        |
+| Loan rules (who can do what, tokens) | `apps/api/src/modules/circulation/loan-state-machine.ts` (pure, unit-tested)      |
+| Loan side effects (DB, PIN, tokens)  | `apps/api/src/modules/circulation/circulation.service.ts`                         |
+| Feed, filters, search                | `catalog.service.ts` + `catalog.repository.ts` (search is raw SQL with `pg_trgm`) |
+| Who can see which user field         | `apps/api/src/modules/users/user.service.ts` (`toPublicUser` / `toPrivateUser`)   |
+| Identity gate (add book / borrow)    | `users` service `assertVerified` / `assertCanBorrow`                              |
+| Database tables                      | `schema.prisma`, then `pnpm db:migrate`                                           |
+| Colours, theme                       | CSS variables in `apps/web/app/globals.css`, mapped in `tailwind.config.ts`       |
+| Navigation (sidebar / mobile dock)   | `apps/web/components/app-shell.tsx`                                               |
+| Toasts                               | `apps/web/lib/notify.tsx` (use `toast` from here, not from `sonner`)              |
+| Barcode scanning                     | `apps/web/components/scanner.tsx` and `add-book-sheet.tsx`                        |
+| Demo data                            | `apps/api/prisma/seed.ts`                                                         |
+
+## Architecture rules
+
+The API is a **modular monolith**. Each module in `apps/api/src/modules/<name>/` has:
+
+- `*.repository.ts` – Prisma access only
+- `*.service.ts` – business rules; its exported type is the module's **public interface**
+- `*.routes.ts` – HTTP + Zod schemas (also generates the OpenAPI docs)
+- `index.ts` – exports the factory, routes and types
+
+Modules never import each other's repositories. They call each other's services, wired in `src/app.ts`. Dependencies flow one way: `users, circles → catalog → circulation → passport`. Operations that must be atomic across modules take an optional `tx` (Prisma transaction).
+
+Errors are `{ "error": { "code", "message" } }` with stable English codes (`HttpError`). The web app translates codes in `lib/labels.ts`.
+
+## Product rules worth knowing
+
+- **Discovery is global.** `GET /feed` returns all available books except your own. `circleId`, `nearby`, `genre`, `condition`, `q` are optional filters.
+- **Privacy.** Other users see only first name, `@username`, avatar, trust score and karma tokens. Last name, national code, phone and birth date are returned only to their owner. Public DTOs are built field by field; a unit test guards this.
+- **Identity gate.** Without national code and birth date the API answers `IDENTITY_REQUIRED` for adding books and borrowing.
+- **PIN handshake.** The person _handing over_ the book shows the PIN; the person _receiving_ it types it. Handover: lender shows, borrower enters. Return: borrower shows, lender enters. Five wrong attempts lock the loan.
+- **Tokens.** `karma_tokens` is the spendable balance (starts at 1). Approving a loan deducts one from the borrower; returning restores it and pays the lender +1. Listing 2+ available books gives a one-time bonus token.
+- **Overdue.** A sweep at boot and hourly marks `ACTIVE` loans past due as `OVERDUE` (−5 trust).
+- **Locations are never exact.** Circles store a city and an optional geohash truncated to 5 characters.
+
+Loan state machine:
 
 ```
 REQUESTED ─APPROVE→ APPROVED ─HANDOVER→ ACTIVE ─RETURN→ RETURNED
-    └──────CANCEL──────┴→ CANCELLED       └─MARK_OVERDUE→ OVERDUE ─RETURN→ RETURNED
+    └────CANCEL────────┴→ CANCELLED       └─MARK_OVERDUE→ OVERDUE ─RETURN→ RETURNED
 ```
 
-The lender shows the **handover PIN**, the borrower enters it. The borrower shows the **return PIN**, the lender enters it. Five wrong attempts lock the loan. An overdue sweep runs at boot and hourly. The partial unique index `loans_one_open_per_copy` guarantees a copy has at most one reserved/active loan.
+## API overview
 
-### Design notes
+Full, always-current reference: Swagger at `/docs`. Everything except `/auth/*`, `/avatars` and `/health` needs `Authorization: Bearer <jwt>`.
 
-- `karma_tokens` is the **spendable** balance and starts at 1 (a welcome token). Approving a loan deducts one token from the borrower (locked); returning it restores that token and pays the lender +1. The "list 2+ books" reward is a one-time +1 tracked by `listing_bonus_granted`.
-- Error responses are `{ "error": { "code", "message" } }` with stable English codes; the web app maps codes to Persian messages (`apps/web/lib/labels.ts`).
-- Reminder links are built on the client so the API stays free of user-facing Persian text.
-- Date pickers use the browser's native `<input type="date">`; dates are displayed in the Jalali calendar.
+| Area     | Endpoints                                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------ |
+| Auth     | `POST /auth/otp/request`, `POST /auth/otp/verify` (returns `registrationRequired` for new phones)            |
+| Users    | `GET/PATCH /users/me`, `PATCH /users/me/identity`, `GET /users/:id`, `GET /avatars`                          |
+| Discover | `GET /feed`, `GET /feed/random`, `GET /discover/overview`                                                    |
+| Catalog  | `GET /books/isbn/:isbn`, `POST /copies`, `GET /copies/mine`, `GET/PATCH/DELETE /copies/:id`                  |
+| Wishlist | `GET /wishlist`, `GET /wishlist/ids`, `PUT/DELETE /wishlist/:editionId`                                      |
+| Loans    | `GET/POST /loans`, `GET /loans/:id`, `POST /loans/:id/approve\|handover\|return\|cancel`                     |
+| External | `POST /external-loans`, `POST /external-loans/:id/return`                                                    |
+| Passport | `GET/POST /copies/:id/passport`, `GET /passport/pending`                                                     |
+| Circles  | `GET /circles`, `GET /circles/mine`, `POST /circles`, `POST /circles/join`, `DELETE /circles/:id/membership` |
 
-### Roadmap / known gaps
+## Data model
 
-Real SMS OTP delivery (implement `OtpSender`), push notifications for requests and due dates, API integration tests, a Jalali date picker, e2e tests for the web app.
+`users`, `circles`, `user_circles`, `book_editions`, `book_copies`, `loans`, `book_passport_entries`, `wishlist_items` (see `schema.prisma`). Notable details:
 
-### License
+- `users` holds private identity fields (`first_name`, `last_name`, `national_id`, `phone_number`, `birth_date`) and `contact_hash` (HMAC of the phone, used for lookup).
+- `book_editions.search_text` is a normalized (Persian-aware) blob indexed with `pg_trgm` and a generated `tsvector`. The app must set it when creating an edition (`buildSearchText` in `packages/shared`).
+- A partial unique index (`loans_one_open_per_copy`) guarantees a copy has at most one approved/active loan.
+
+**Migrations are partly hand-written.** The extension, trigram/FTS indexes, generated column, partial index and CHECK constraints live in the SQL files and are not expressed in `schema.prisma`. When you create a new migration, keep them intact.
+
+## Environment variables
+
+Copy `.env.example` to `.env` (git-ignored).
+
+| Variable                                                                      | Purpose                                                                              |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `DATABASE_URL`, `REDIS_URL`                                                   | Postgres and Redis connections                                                       |
+| `JWT_SECRET`                                                                  | JWT signing key (min 16 chars)                                                       |
+| `CONTACT_HASH_PEPPER`                                                         | HMAC pepper for phone hashes                                                         |
+| `CORS_ORIGIN`                                                                 | Allowed web origin(s), comma separated                                               |
+| `DEV_FIXED_OTP`                                                               | Dev only: fixed login code that is also echoed by the API. Leave unset in production |
+| `REQUIRE_INVITE`                                                              | `true` = sign-up needs a valid circle invite code                                    |
+| `API_PORT`                                                                    | API port (default 4000)                                                              |
+| `NEXT_PUBLIC_API_URL`                                                         | API URL used by the browser (build-time for web)                                     |
+| `POSTGRES_PORT`, `REDIS_PORT`, `API_HOST_PORT`, `WEB_HOST_PORT`, `NODE_IMAGE` | Docker overrides (see above)                                                         |
+
+## Testing and CI
+
+- Unit tests: Vitest (`packages/shared`, `apps/api`). The loan state machine and the privacy of public DTOs are covered.
+- `.github/workflows/ci.yml` – format check, typecheck and tests; web build; migrations + seed (twice) against a real Postgres.
+- `.github/workflows/docker.yml` – builds and publishes `api` and `web` images to GHCR on `main` and `v*` tags.
+
+## Gotchas
+
+- Don't run `pnpm build` while `pnpm dev` is running; both use `apps/web/.next`. If the dev server shows "Cannot find module './NNN.js'", stop it, `rm -rf apps/web/.next`, restart.
+- Camera scanning only works on `localhost` or HTTPS.
+- Real SMS delivery is not implemented; `OtpSender` in `modules/auth` is the extension point (the default logs to the console).
+- The OTP request/verify endpoints are rate-limited per phone in Redis. Run `redis-cli flushall` on your local Redis if you lock yourself out while testing.
+
+## Known gaps
+
+SMS delivery, push notifications, ESLint, API integration tests, web/e2e tests, a Jalali date picker (dates are typed as `YYYY/MM/DD`).
+
+## License
 
 [MIT](LICENSE)
-
----
-
-<div dir="rtl">
-
-## فارسی
-
-**ورق** یک پلتفرم رایگان و متن‌باز برای امانت دادن کتاب‌های کاغذی بین دوستان، دانشگاه‌ها و محله‌هاست؛ هم قفسه شخصی کتاب‌هایت است، هم دفتر امانت‌ها.
-
-### امکانات
-
-- **کتابخانه شخصی** – با اسکن بارکد شابک (دریافت خودکار مشخصات از Open Library / Google Books) یا ثبت دستی، کتاب‌هایت را در چند ثانیه ثبت کن.
-- **ثبت امانت دستی به دوست** – کتابت را به کسی بیرون از ورق دادی؟ نام و تاریخ برگشت را ثبت کن؛ ورق یادت می‌ماند و لینک یادآوری واتساپ می‌سازد.
-- **اعتبار امانت (کارما)** – هر امانت یک اعتبار. با ۲ کتاب آماده امانت یک اعتبار هدیه می‌گیری، با امانت دادن ۱+ می‌شود و با امانت گرفتن یک اعتبار تا برگشت کتاب قفل می‌شود.
-- **کشف سراسری** – همه کتاب‌های آماده امانت بدون نیاز به عضویت در حلقه دیده و امانت گرفته می‌شوند؛ حلقه‌ها (دانشگاه، کافه، جمع دوستان) فقط فیلتر اختیاری‌اند. آدرس دقیق هیچ‌وقت ثبت نمی‌شود؛ فقط شهر و یک ژئوهش حداکثر ۵ کیلومتری.
-- **دست‌دادن دومرحله‌ای با کد ۴ رقمی** – گیرنده کتاب، کدی را که روی گوشی طرف مقابل است وارد می‌کند و وضعیت فیزیکی کتاب (نو، خوب، متوسط، کهنه) را در تحویل و بازگشت ثبت می‌کند.
-- **پاسپورت کتاب** – هر نسخه فیزیکی یک خط زمانی دارد و هر امانت‌گیرنده بعد از برگشت می‌تواند یک جمله خاطره بنویسد.
-- **پروفایل عمومی بدون سوگیری، هویت خصوصی** – نام، کد ملی، موبایل و تاریخ تولد فقط برای خود کاربر قابل مشاهده است؛ دیگران فقط @نام‌کاربری، آواتار، امتیاز اعتماد و اعتبار امانت را می‌بینند.
-- **جستجوی فارسی با تحمل غلط املایی** – `pg_trgm` و جستجوی تمام‌متن پستگرس روی متن نرمال‌شده (ی/ک عربی، ارقام، نیم‌فاصله).
-- **PWA فارسی‌محور** – راست‌به‌چپ، فونت وزیرمتن، تم روشن و تاریک کاغذ و جوهر، قابل نصب روی گوشی.
-
-### اجرای سریع
-
-```bash
-docker compose up --build
-```
-
-| سرویس | آدرس |
-| --- | --- |
-| برنامه وب | http://localhost:3000 |
-| API | http://localhost:4000 |
-| مستندات Swagger | http://localhost:4000/docs |
-
-مایگریشن‌ها و داده‌های نمونه (۱۵ کتاب فارسی و ترجمه، ۳ حلقه، ۵ کاربر) خودکار اعمال می‌شوند. در حالت توسعه، کد ورود همیشه **`123456`** است.
-
-کاربران نمونه با شماره‌های `09121110001` تا `09121110005` وارد می‌شوند. کدهای دعوت حلقه‌ها: `UTEHRAN1`، `METROCAFE` و `FRIENDS24`.
-
-> اگر پورتی اشغال بود، در فایل `.env` مقدار `POSTGRES_PORT`، `REDIS_PORT`، `API_HOST_PORT` یا `WEB_HOST_PORT` را عوض کن. شابک‌های داده نمونه ساختگی‌اند و شابک واقعی آن کتاب‌ها نیستند.
-
-### توسعه محلی
-
-```bash
-cp .env.example .env
-docker compose up -d postgres redis
-pnpm install
-pnpm db:deploy && pnpm db:seed
-pnpm dev
-pnpm test
-```
-
-### معماری
-
-مونوریپوی pnpm با یک **مونولیت ماژولار** (Fastify + Prisma) برای API و یک برنامه Next.js. ماژول‌های `auth`، `users`، `catalog`، `circulation`، `passport` و `circles` هر کدام لایه‌های repository، service و routes دارند و فقط از طریق رابط عمومی سرویس‌ها با هم حرف می‌زنند. ماشین حالت امانت (`REQUESTED → APPROVED → ACTIVE → RETURNED / OVERDUE / CANCELLED`) یک تابع خالص و تست‌شده است.
-
-برای مشارکت، [CONTRIBUTING.md](CONTRIBUTING.md) را ببین. مجوز: [MIT](LICENSE).
-
-</div>
-# varaq
